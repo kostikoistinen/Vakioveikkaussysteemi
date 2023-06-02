@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# In[24]:
 
 
 ##### import numpy as np
@@ -18,6 +18,15 @@ import tkinter
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+
+
+# Simulating a long-running task
+
+
+
+
+
+
 #get_vakio() will parse data from tekstitv site.
 def get_vakio_odds():
     url = 'https://yle.fi/tekstitv/txt/479_0001.htm'
@@ -200,6 +209,8 @@ def check_sheet(sheet,correct_row):
     return right
 
 def simulate(new_list,size,full,partial):
+    import time
+    import progressbar
     #This is beta version.
     #Correct row:
     valinta = np.array([1,"x",2])
@@ -212,7 +223,7 @@ def simulate(new_list,size,full,partial):
     i=0
     correct = []
     correct3 = []
-    length=100
+    length=1000
     results = np.zeros(length)
     results3 = np.zeros(length)
     two=0
@@ -306,8 +317,15 @@ def simulate(new_list,size,full,partial):
 
     #plt.plot(result)    
     '''
+    print("Odota hetki, simulaatio käynnissä...")
+    widgets = [progressbar.Bar("|"), '', progressbar.Percentage(), '', progressbar.Timer()]
+    progress = progressbar.ProgressBar(max_value=14, widgets=widgets).start()
     while two < 14:
+        time.sleep(0.1)  # Simulating some work
+        progress.update(two+1)
         while i<length:
+
+            # Call the function
             #Clear sheet
             sheet = makesheet(size)
             #Make the system
@@ -338,7 +356,9 @@ def simulate(new_list,size,full,partial):
         correct3 = []
         correct_o = []
         i=0
-    
+
+    progress.finish()
+
     result_own = np.delete(result_own,0,0)
     results = np.delete(results,0,0)
     results3 = np.delete(results3,0,0)
