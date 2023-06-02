@@ -60,7 +60,7 @@
  [],
  False,
  False,
- 1685714133,
+ 1685714570,
  [('run',
    '/home/kayttaja/notebook/jupyterenv/lib/python3.8/site-packages/PyInstaller/bootloader/Linux-64bit-intel/run',
    'EXECUTABLE')])
