@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[24]:
+# In[1]:
 
 
 ##### import numpy as np
@@ -15,17 +15,14 @@ import copy
 import pandas as pd
 import numpy as np
 import tkinter
+import PIL._tkinter_finder
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-
-
+import time
+from IPython.display import display
 # Simulating a long-running task
-
-
-
-
-
+#Todo: Etsi get_vakio_odds() funktiosta vaihto:
 
 #get_vakio() will parse data from tekstitv site.
 def get_vakio_odds():
@@ -49,7 +46,14 @@ def get_vakio_odds():
 
     string = str(boxbox_content)
     pattern = r"\d+\s+\d+\s+\d+"  # match three numbers with spaces between them
-    pattern2 = r'0,[0-9]{2}'
+    pattern2 = r'0,[0-9]{2}'      # Get a pattern of rivihinta
+    
+    try:
+        matches3 = re.findall("vaihto", string) #Try to find vaihtosumma
+    except:
+        print("Vaihtoa ei saatavilla.")
+        matches3 = False
+    
     matches2 = re.findall(pattern2, string)
     matches = re.findall(pattern, string)
 
@@ -65,11 +69,17 @@ def get_vakio_odds():
             if np.sum(new_list[i,:]!= 1.0):
                 new_list[i,2] = new_list[i,2]+ 1 - np.sum(new_list[i,:]) #round the error
         a=0
-      
-    if matches2:
-        return new_list,float(matches2[0].replace(",", "."))
+    if matches3:
+        startindex = string.index(' '.join(matches3))
+        startindex = 7+startindex
+        result = int(''.join([char for char in string[startindex:startindex+10] if char.isdigit()]))
     else:
-        return new_list, 0
+        result = 0
+    
+    if matches2:
+        return new_list,float(matches2[0].replace(",", ".")),result
+    else:
+        return new_list, 0,result
 
 def system(size):
     try:
@@ -164,8 +174,16 @@ def build_system(new_list,size,full,partial,sheet):
     
     return sheet
 
+#Defining the voitonjako
+palautus = 0.63
+house = 1-palautus
+arr_13 = [0.26,0.13,0.09,0.15]
+arr_12 = [0.31,0.18,0.14]
+arr_11 = [0.39,0.24]
+arr_10 = [0.39, 0.24]
+
 #Download the target list and odds: Check if the list is valid.
-new_list, cost = get_vakio_odds()
+new_list, cost, exchange = get_vakio_odds()
 if cost==0:
     cost = float(input("Rivihintaa ei löytynyt, määritä rivihinta käsin (esim. 0.25): "))
 if new_list is None:
@@ -405,15 +423,105 @@ def simulate(new_list,size,full,partial):
     plt.yticks([4,5,6,7,8,9,10,11,12,13],[4,5,6,7,8,9,10,11,12,13])
     plt.axhline(y=13, color='red', linestyle='--')
     plt.legend()
+    plt.text(0.9, -0.2, "Sulje ikkuna jatkaaksesi simulaatiota...", ha='center', va='center', transform=plt.gca().transAxes)
+    plt.tight_layout()
+    plt.show()
+    return mean_o, 2*std_o,correct_row
     
 
-    plt.show()
 
+def simulate2(exchange,cost,mean,std,new_list,size,correct_row):
+    input3 = input("Haluatko simuloida myös arvioitua voitonjakoa? Koko vaihto simuloidaan. Tässä voi kestää n. 60 minuuttia (k/e)?")
+    #exchange=100000
+    if input3 != "k":
+        return "Ohjelma päättyy"
+    if exchange == 0:
+        return "Voittoa ei voida määrittää, koska vaihtoa ei tiedetä. Ohjelma päättyy."
+    simu_length = int(exchange/cost)
+    print("Simulaatio käynnissä")
+    #do the simu
+    i=0
+    correct = []
+    start_time = time.time()
+    sheet0 = makesheet(size) # blank sheet
+    while i<simu_length:
+        sheet = makesheet(size) #blank sheet
+        #Make the system
+        sheet = build_system(new_list,size,0,0,sheet)
+        #Check correct
+        correct = np.append(correct, check_sheet(sheet,correct_row))        
+
+        # Your code for a single iteration
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        start_time = end_time
+        if i%int(simu_length/20)==0:
+            print("Simulaatiosta valmiina", round(100*i/simu_length),"%",
+                  ", Simulaatiota arviolta jäljellä: ", round(elapsed_time*(simu_length-i)), " s" )
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        start_time = end_time
+        
+        i=i+1
+
+    #Result:
+    if np.max(correct)==13:
+        #Voitonjako 13:n mukaan: Etsi kuinka monta.
+        num13,win13 = np.count_nonzero(correct == 13), exchange*arr_13[0]/np.count_nonzero(correct == 13)
+        num12,win12 = np.count_nonzero(correct == 12), exchange*arr_13[1]/np.count_nonzero(correct == 12)
+        num11,win11 = np.count_nonzero(correct == 11), exchange*arr_13[2]/np.count_nonzero(correct == 11)
+        num10,win10 = np.count_nonzero(correct == 10), exchange*arr_13[3]/np.count_nonzero(correct == 10)
+        num9,win9 = np.count_nonzero(correct == 9),0
+    elif np.max(correct)==12:
+        #Voitonjako 12:n mukaan: Etsi kuinka monta.
+        num13,win13 = 0,0
+        num12,win12 = np.count_nonzero(correct == 12), exchange*arr_12[0]/np.count_nonzero(correct == 12)
+        num11,win11 = np.count_nonzero(correct == 11), exchange*arr_12[1]/np.count_nonzero(correct == 11)
+        num10,win10 = np.count_nonzero(correct == 10), exchange*arr_12[2]/np.count_nonzero(correct == 10)
+        num9,win9 = np.count_nonzero(correct == 9),0
+    elif np.max(correct)==11:
+        num13,win13 = 0,0
+        num12,win12 = 0,0
+        #Voitonjako 11:n mukaan: Etsi kuinka monta.
+        num11,win11 = np.count_nonzero(correct == 11), exchange*arr_11[0]/np.count_nonzero(correct == 11)
+        num10,win10 = np.count_nonzero(correct == 10), exchange*arr_11[1]/np.count_nonzero(correct == 10)
+        num9,win9 = np.count_nonzero(correct == 9),0
+    elif np.max(correct)==10:
+        num13,win13 = 0,0
+        num12,win12 = 0,0
+        num11,win11 = 0,0
+        #Voitonjako 10:n mukaan: Etsi kuinka monta.
+        num10,win10 = np.count_nonzero(correct == 10), exchange*arr_10[0]/np.count_nonzero(correct == 10)
+        num9,win9 = np.count_nonzero(correct == 9), exchange*arr_10[1]/np.count_nonzero(correct == 9)
+    else:
+        print("Kenelläkään ei edes 10 oikein, voittoja ei jaeta.")
+    
+    taulu = [[13,12,11,10,9],[num13,num12,num11,num10,num9], [win13,win12,win11,win10,win9]]
+    df = pd.DataFrame(taulu,index=["Oikein","Lkm", "Voitto"])
+    df.columns = ["","","","",""]
+    df.style.set_caption('Arvio voitonjaosta')
+    df = df.round()
+    print("")
+    print("Arvio voitonjaosta:")
+    pd.set_option('display.max_columns', None)  # Display all columns
+    pd.set_option('display.width', None)  # Remove width restriction
+    display(df)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     #Huom. Tee simulaatio vielä pelaajan valitsemalla x+x systeemillä!
     
-simulate(new_list,size,full,partial)
-
+mean,std,correct_row = simulate(new_list,size,full,partial)
+simulate2(exchange,cost, mean,std,new_list,size,correct_row)
 # simulaatio?
 
 
